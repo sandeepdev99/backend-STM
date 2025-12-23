@@ -1,8 +1,14 @@
-import express from "express";
 import dotenv from "dotenv";
-import "./config/mongoose.js" 
+dotenv.config();
+// import "./config/mongoose.js"
 import connectDB from "./config/db.js";
-dotenv.config({ path: "./.env" });
+import app from "./app.js"
+import cors from "cors"
+app.use(cors({
+    origin: process.env.CORS_ORIGIN,
+    Credential: true}
+  ))
+
 connectDB()
 .then(
   () => {
@@ -20,11 +26,6 @@ connectDB()
   }
 )
 
-const app = express();
-
-app.get("/api/v1/", (req, res) => {  
-    res.send("API is running...");
-});
 app.listen(process.env.PORT, () => {
   console.log(`Server is listening on port ${process.env.PORT}`);
 });
