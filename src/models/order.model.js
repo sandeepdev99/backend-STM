@@ -2,7 +2,7 @@ import mongoose, {Schema} from "mongoose";
 
 const orderSchema = new Schema(
     {
-        user_id: {
+        user: {
             type: Schema.Types.ObjectId,
             ref: "User",
             required: true
@@ -15,7 +15,8 @@ const orderSchema = new Schema(
         paymentMethod: {
             type: String,
             required: true,
-            enum: ["Cash on Delivery", "UPI", "NetBanking"]
+            enum: ["Cash on Delivery", "UPI", "NetBanking"],
+            default:"Cash on Delivery",
         }, 
         totalAmount: {
             type: Number,
@@ -28,7 +29,8 @@ const orderSchema = new Schema(
         },
         discountedAmount: {
             type: Number,
-            required: true
+            required: true,
+            default: 0
         },
         additionalCharges: {
             type: Number,

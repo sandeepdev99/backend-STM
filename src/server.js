@@ -3,11 +3,7 @@ dotenv.config();
 // import "./config/mongoose.js"
 import connectDB from "./config/db.js";
 import app from "./app.js"
-import cors from "cors"
-app.use(cors({
-    origin: process.env.CORS_ORIGIN,
-    Credential: true}
-  ))
+
 
 connectDB()
 .then(

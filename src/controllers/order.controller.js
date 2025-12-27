@@ -3,6 +3,7 @@ import Product from '../models/product.model.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import {asyncHandler} from '../utils/asyncHandler.js';
+import mongoose from "mongoose";
 
 
 export const placeOrder = asyncHandler(async (req, res) => {
@@ -16,50 +17,65 @@ export const placeOrder = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'Delivery address required');
   }
 
-  let totalAmount = 0;
-  const processedItems = [];
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  for (const item of items) {
-    const product = await Product.findById(item.product);
+  try {
+    let totalAmount = 0;
+    const processedItems = [];
 
-    if (!product || !product.isActive) {
-      throw new ApiError(404, 'Product not available');
+    for (const item of items) {
+      const product = await Product.findById(item.product).session(session);
+
+      if (!product || !product.isActive) {
+        throw new ApiError(404, 'Product not available');
+      }
+
+      if (product.stock < item.quantity) {
+        throw new ApiError(
+          400,
+          `Insufficient stock for ${product.name}`
+        );
+      }
+
+      // snapshot price
+      totalAmount += product.price * item.quantity;
+
+      processedItems.push({
+        product: product._id,
+        quantity: item.quantity,
+        price: product.price,
+      });
+
+      // reduce stock safely
+      product.stock -= item.quantity;
+      await product.save({ session });
     }
 
-    if (product.stock < item.quantity) {
-      throw new ApiError(
-        400,
-        `Insufficient stock for ${product.name}`
-      );
-    }
+    const order = await Order.create(
+      [
+        {
+          user: req.user.id,
+          items: processedItems,
+          totalAmount,
+          deliveryAddress,
+        },
+      ],
+      { session }
+    );
 
-    // calculate price snapshot
-    const itemTotal = product.price * item.quantity;
-    totalAmount += itemTotal;
+    await session.commitTransaction();
+    session.endSession();
 
-    processedItems.push({
-      product: product._id,
-      quantity: item.quantity,
-      price: product.price,
-    });
-
-    // reduce stock
-    product.stock -= item.quantity;
-    await product.save();
+    res.status(201).json(
+      new ApiResponse(201, order[0], 'Order placed successfully')
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-
-  const order = await Order.create({
-    user: req.user.id,
-    items: processedItems,
-    totalAmount,
-    deliveryAddress,
-  });
-
-  res.status(201).json(
-    new ApiResponse(201, order, 'Order placed successfully')
-  );
 });
-
 
 
 export const getMyOrders = asyncHandler(async (req, res) => {
